@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -21,11 +23,13 @@ fn setup(
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let num_cells = 20;
-    let cell_size = 50.0;
+    let cell_size = 40.0;
 
     let window_size = cell_size * num_cells as f32;
     let mut window = q_windows.single_mut();
-    window.resolution.set(window_size, window_size);
+    window
+        .resolution
+        .set(window_size + cell_size * 2.0, window_size + cell_size * 2.0);
 
     let grid_start_x = -window_size / 2.0;
     let grid_start_y = -window_size / 2.0;
@@ -57,10 +61,13 @@ fn setup(
 
 fn on_mouse_over(
     hover_material: Handle<ColorMaterial>,
-) -> impl Fn(Trigger<Pointer<Over>>, Query<&mut MeshMaterial2d<ColorMaterial>>) {
+) -> impl Fn(Trigger<Pointer<Over>>, Query<(&Cell, &mut MeshMaterial2d<ColorMaterial>)>) {
     move |over, mut query| {
-        if let Ok(mut material) = query.get_mut(over.entity()) {
-            material.0 = hover_material.clone();
+        if let Ok((cell, mut material)) = query.get_mut(over.entity()) {
+            {
+                println!("Cell hovered: ({}, {})", cell.x, cell.y);
+                material.0 = hover_material.clone();
+            }
         }
     }
 }
