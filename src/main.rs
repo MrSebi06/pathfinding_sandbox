@@ -1,50 +1,76 @@
 use bevy::prelude::*;
-
-pub struct HelloPlugin;
-
-impl Plugin for HelloPlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(GreetTimer(Timer::from_seconds(2.0, TimerMode::Repeating)));
-        app.add_systems(Startup, add_people);
-        app.add_systems(Update, (update_people, greet_people).chain());
-    }
-}
+use bevy::window::PrimaryWindow;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(HelloPlugin)
-        .run();
+    let mut app = App::new();
+    app.add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_systems(Startup, setup);
+    app.run();
 }
 
-#[derive(Resource)]
-struct GreetTimer(Timer);
-
 #[derive(Component)]
-struct Person;
-
-#[derive(Component)]
-struct Name(String);
-
-fn add_people(mut commands: Commands) {
-    commands.spawn((Person, Name("Elaina Proctor".to_string())));
-    commands.spawn((Person, Name("Renzo Hume".to_string())));
-    commands.spawn((Person, Name("Zayna Nieves".to_string())));
+struct Cell {
+    x: usize,
+    y: usize,
 }
 
-fn greet_people(time: Res<Time>, mut timer: ResMut<GreetTimer>, query: Query<&Name, With<Person>>) {
-    if timer.0.tick(time.delta()).just_finished() {
-        for name in &query {
-            println!("hello {}!", name.0);
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let num_cells = 20;
+    let cell_size = 50.0;
+
+    let window_size = cell_size * num_cells as f32;
+    let mut window = q_windows.single_mut();
+    window.resolution.set(window_size, window_size);
+
+    let grid_start_x = -window_size / 2.0;
+    let grid_start_y = -window_size / 2.0;
+
+    commands.spawn(Camera2d);
+
+    let shape = meshes.add(Rectangle::new(cell_size - 2.0, cell_size - 2.0));
+    let default_material = materials.add(ColorMaterial::from(Color::WHITE));
+    let hover_material = materials.add(ColorMaterial::from(Color::BLACK));
+
+    for x in 0..num_cells {
+        for y in 0..num_cells {
+            commands
+                .spawn((
+                    Cell { x, y },
+                    Mesh2d(shape.clone()),
+                    MeshMaterial2d(default_material.clone()),
+                    Transform::from_xyz(
+                        grid_start_x + x as f32 * cell_size + cell_size / 2.0,
+                        grid_start_y + y as f32 * cell_size + cell_size / 2.0,
+                        0.0,
+                    ),
+                ))
+                .observe(on_mouse_over(hover_material.clone()))
+                .observe(on_mouse_out(default_material.clone()));
         }
     }
 }
 
-fn update_people(mut query: Query<&mut Name, With<Person>>) {
-    for mut name in &mut query {
-        if name.0 == "Elaina Proctor" {
-            name.0 = "Elaina Hume".to_string();
-            break; // We don't need to change any other names.
+fn on_mouse_over(
+    hover_material: Handle<ColorMaterial>,
+) -> impl Fn(Trigger<Pointer<Over>>, Query<&mut MeshMaterial2d<ColorMaterial>>) {
+    move |over, mut query| {
+        if let Ok(mut material) = query.get_mut(over.entity()) {
+            material.0 = hover_material.clone();
+        }
+    }
+}
+
+fn on_mouse_out(
+    default_material: Handle<ColorMaterial>,
+) -> impl Fn(Trigger<Pointer<Out>>, Query<&mut MeshMaterial2d<ColorMaterial>>) {
+    move |over, mut query| {
+        if let Ok(mut material) = query.get_mut(over.entity()) {
+            material.0 = default_material.clone();
         }
     }
 }
