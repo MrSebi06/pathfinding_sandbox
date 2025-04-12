@@ -1,8 +1,8 @@
-use bevy::asset::{Assets, Handle};
+use bevy::asset::Assets;
 use bevy::color::Color;
 use bevy::prelude::{
-    Camera2d, Click, ColorMaterial, Commands, Component, Mesh, Mesh2d, MeshMaterial2d, Out, Over,
-    Pointer, Query, Rectangle, ResMut, Transform, Trigger, Window, With,
+    Camera2d, Changed, Click, ColorMaterial, Commands, Component, Mesh, Mesh2d, MeshMaterial2d,
+    Mix, Or, Out, Over, Pointer, Query, Rectangle, ResMut, Transform, Trigger, Window, With,
 };
 use bevy::window::PrimaryWindow;
 use std::fmt::Display;
@@ -14,14 +14,15 @@ struct Cell {
 }
 
 #[derive(Component)]
-enum CellState {
+pub enum CellState {
     Empty,
     Wall,
     Start,
     End,
-    Path,
-    Visited,
 }
+
+#[derive(Component, Default)]
+pub struct CellHovered(bool);
 
 impl Display for CellState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -30,8 +31,6 @@ impl Display for CellState {
             CellState::Wall => write!(f, "Wall"),
             CellState::Start => write!(f, "Start"),
             CellState::End => write!(f, "End"),
-            CellState::Path => write!(f, "Path"),
-            CellState::Visited => write!(f, "Visited"),
         }
     }
 }
@@ -57,65 +56,76 @@ pub fn setup(
     commands.spawn(Camera2d);
 
     let shape = meshes.add(Rectangle::new(cell_size - 2.0, cell_size - 2.0));
-    let default_material = materials.add(ColorMaterial::from(Color::WHITE));
-    let hover_material = materials.add(ColorMaterial::from(Color::BLACK));
 
     for x in 0..num_cells {
         for y in 0..num_cells {
+            let default_material = materials.add(ColorMaterial::from(Color::WHITE));
             commands
                 .spawn((
                     Cell { x, y },
                     CellState::Empty,
+                    CellHovered(false),
                     Mesh2d(shape.clone()),
-                    MeshMaterial2d(default_material.clone()),
+                    MeshMaterial2d(default_material),
                     Transform::from_xyz(
                         grid_start_x + x as f32 * cell_size + cell_size / 2.0,
                         grid_start_y + y as f32 * cell_size + cell_size / 2.0,
                         0.0,
                     ),
                 ))
-                .observe(on_mouse_over(hover_material.clone()))
-                .observe(on_mouse_out(default_material.clone()))
+                .observe(on_mouse_over)
+                .observe(on_mouse_out)
                 .observe(on_click);
         }
     }
 }
 
-fn on_mouse_over(
-    hover_material: Handle<ColorMaterial>,
-) -> impl Fn(Trigger<Pointer<Over>>, Query<(&Cell, &mut MeshMaterial2d<ColorMaterial>, &CellState)>)
-{
-    move |over, mut query| {
-        if let Ok((cell, mut material, cell_state)) = query.get_mut(over.entity()) {
-            {
-                println!(
-                    "Cell hovered: ({}, {}) - state : {}",
-                    cell.x, cell.y, cell_state
-                );
-                material.0 = hover_material.clone();
-            }
+fn on_mouse_over(over: Trigger<Pointer<Over>>, mut query: Query<&mut CellHovered>) {
+    if let Ok(mut cell_hovered) = query.get_mut(over.entity()) {
+        {
+            cell_hovered.0 = true;
         }
     }
 }
 
-fn on_mouse_out(
-    default_material: Handle<ColorMaterial>,
-) -> impl Fn(Trigger<Pointer<Out>>, Query<&mut MeshMaterial2d<ColorMaterial>>) {
-    move |over, mut query| {
-        if let Ok(mut material) = query.get_mut(over.entity()) {
-            material.0 = default_material.clone();
-        }
+fn on_mouse_out(out: Trigger<Pointer<Out>>, mut query: Query<&mut CellHovered>) {
+    if let Ok(mut cell_hovered) = query.get_mut(out.entity()) {
+        cell_hovered.0 = false;
     }
 }
 
-fn on_click(click: Trigger<Pointer<Click>>, mut query: Query<(&Cell, &mut CellState)>) {
-    if let Ok((cell, mut cell_state)) = query.get_mut(click.entity()) {
+fn on_click(click: Trigger<Pointer<Click>>, mut query: Query<&mut CellState>) {
+    if let Ok(mut cell_state) = query.get_mut(click.entity()) {
         *cell_state = match *cell_state {
             CellState::Empty => CellState::Wall,
             CellState::Wall => CellState::Start,
             CellState::Start => CellState::End,
             CellState::End => CellState::Empty,
-            _ => CellState::Empty,
         };
+    }
+}
+
+pub fn update_cell_colors(
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    query: Query<
+        (&CellState, &MeshMaterial2d<ColorMaterial>, &CellHovered),
+        Or<(Changed<CellState>, Changed<CellHovered>)>,
+    >,
+) {
+    for (state, material_handle, cell_hovered) in query.iter() {
+        if let Some(material) = materials.get_mut(material_handle.0.id()) {
+            let mut new_color = match state {
+                CellState::Empty => Color::WHITE,
+                CellState::Wall => Color::srgb(0.5, 0.5, 0.5),
+                CellState::Start => Color::srgb(0.0, 1.0, 0.0),
+                CellState::End => Color::srgb(1.0, 0.0, 0.0),
+            };
+
+            if cell_hovered.0 {
+                new_color = new_color.mix(&Color::BLACK, 0.5);
+            }
+
+            material.color = new_color;
+        }
     }
 }
