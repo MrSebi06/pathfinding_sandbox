@@ -1,15 +1,39 @@
 use bevy::asset::{Assets, Handle};
 use bevy::color::Color;
 use bevy::prelude::{
-    Camera2d, ColorMaterial, Commands, Component, Mesh, Mesh2d, MeshMaterial2d, Out, Over, Pointer,
-    Query, Rectangle, ResMut, Transform, Trigger, Window, With,
+    Camera2d, Click, ColorMaterial, Commands, Component, Mesh, Mesh2d, MeshMaterial2d, Out, Over,
+    Pointer, Query, Rectangle, ResMut, Transform, Trigger, Window, With,
 };
 use bevy::window::PrimaryWindow;
+use std::fmt::Display;
 
 #[derive(Component)]
 struct Cell {
     x: usize,
     y: usize,
+}
+
+#[derive(Component)]
+enum CellState {
+    Empty,
+    Wall,
+    Start,
+    End,
+    Path,
+    Visited,
+}
+
+impl Display for CellState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CellState::Empty => write!(f, "Empty"),
+            CellState::Wall => write!(f, "Wall"),
+            CellState::Start => write!(f, "Start"),
+            CellState::End => write!(f, "End"),
+            CellState::Path => write!(f, "Path"),
+            CellState::Visited => write!(f, "Visited"),
+        }
+    }
 }
 
 pub fn setup(
@@ -41,6 +65,7 @@ pub fn setup(
             commands
                 .spawn((
                     Cell { x, y },
+                    CellState::Empty,
                     Mesh2d(shape.clone()),
                     MeshMaterial2d(default_material.clone()),
                     Transform::from_xyz(
@@ -50,18 +75,23 @@ pub fn setup(
                     ),
                 ))
                 .observe(on_mouse_over(hover_material.clone()))
-                .observe(on_mouse_out(default_material.clone()));
+                .observe(on_mouse_out(default_material.clone()))
+                .observe(on_click);
         }
     }
 }
 
 fn on_mouse_over(
     hover_material: Handle<ColorMaterial>,
-) -> impl Fn(Trigger<Pointer<Over>>, Query<(&Cell, &mut MeshMaterial2d<ColorMaterial>)>) {
+) -> impl Fn(Trigger<Pointer<Over>>, Query<(&Cell, &mut MeshMaterial2d<ColorMaterial>, &CellState)>)
+{
     move |over, mut query| {
-        if let Ok((cell, mut material)) = query.get_mut(over.entity()) {
+        if let Ok((cell, mut material, cell_state)) = query.get_mut(over.entity()) {
             {
-                println!("Cell hovered: ({}, {})", cell.x, cell.y);
+                println!(
+                    "Cell hovered: ({}, {}) - state : {}",
+                    cell.x, cell.y, cell_state
+                );
                 material.0 = hover_material.clone();
             }
         }
@@ -75,5 +105,17 @@ fn on_mouse_out(
         if let Ok(mut material) = query.get_mut(over.entity()) {
             material.0 = default_material.clone();
         }
+    }
+}
+
+fn on_click(click: Trigger<Pointer<Click>>, mut query: Query<(&Cell, &mut CellState)>) {
+    if let Ok((cell, mut cell_state)) = query.get_mut(click.entity()) {
+        *cell_state = match *cell_state {
+            CellState::Empty => CellState::Wall,
+            CellState::Wall => CellState::Start,
+            CellState::Start => CellState::End,
+            CellState::End => CellState::Empty,
+            _ => CellState::Empty,
+        };
     }
 }
