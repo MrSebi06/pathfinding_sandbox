@@ -1,11 +1,22 @@
-use bevy::asset::Assets;
-use bevy::color::Color;
+use bevy::app::{Startup, Update};
 use bevy::prelude::{
-    Camera2d, Changed, Click, ColorMaterial, Commands, Component, Mesh, Mesh2d, MeshMaterial2d,
-    Mix, Or, Out, Over, Pointer, Query, Rectangle, ResMut, Transform, Trigger, Window, With,
+    App, Assets, Camera2d, Changed, Click, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d,
+    MeshMaterial2d, Mix, Or, Out, Over, Pointer, Query, Rectangle, ResMut, Transform, Trigger,
+    Window, With,
 };
 use bevy::window::PrimaryWindow;
 use std::fmt::Display;
+
+/// This module implements a simple grid-based game where each cell can be in one of four states:
+/// `Empty`, `Wall`, `Start`, or `End`.
+///
+/// The grid is displayed in a 2D window, and the user can interact with
+/// the cells by clicking on them. The cells change their state and color based on user interaction.
+///
+pub(super) fn plugin(app: &mut App) {
+    app.add_systems(Startup, setup)
+        .add_systems(Update, update_cell_colors);
+}
 
 #[derive(Component)]
 struct Cell {
@@ -14,16 +25,12 @@ struct Cell {
 }
 
 #[derive(Component)]
-pub enum CellState {
+enum CellState {
     Empty,
     Wall,
     Start,
     End,
 }
-
-#[derive(Component, Default)]
-pub struct CellHovered(bool);
-
 impl Display for CellState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -35,7 +42,10 @@ impl Display for CellState {
     }
 }
 
-pub fn setup(
+#[derive(Component, Default)]
+struct CellHovered(bool);
+
+fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -105,7 +115,7 @@ fn on_click(click: Trigger<Pointer<Click>>, mut query: Query<&mut CellState>) {
     }
 }
 
-pub fn update_cell_colors(
+fn update_cell_colors(
     mut materials: ResMut<Assets<ColorMaterial>>,
     query: Query<
         (&CellState, &MeshMaterial2d<ColorMaterial>, &CellHovered),

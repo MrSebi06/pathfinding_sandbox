@@ -1,11 +1,12 @@
 mod grid;
+mod ui;
 
 use bevy::prelude::*;
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins((DefaultPlugins, MeshPickingPlugin))
-        .add_systems(Startup, grid::setup)
-        .add_systems(Update, grid::update_cell_colors);
-    app.run();
+    App::new()
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_plugins(grid::plugin)
+        .add_plugins(ui::plugin)
+        .run();
 }
