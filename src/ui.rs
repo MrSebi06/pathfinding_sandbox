@@ -29,9 +29,11 @@ fn setup_icons(mut contexts: EguiContexts) {
 fn grid_ui(mut contexts: EguiContexts, mut ui_state: bevy::prelude::ResMut<GridUiState>) {
     let ctx = contexts.ctx_mut();
 
-    egui::SidePanel::left("grid_control").show_animated(ctx, ui_state.is_open, |ui| {
-        ui.label("Grid Controls");
-    });
+    egui::SidePanel::left("grid_control")
+        .resizable(false)
+        .show_animated(ctx, ui_state.is_open, |ui| {
+            ui.label("Grid Controls");
+        });
 
     let frame = egui::Frame {
         fill: egui::Color32::from_black_alpha(0),

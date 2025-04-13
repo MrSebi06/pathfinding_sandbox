@@ -1,6 +1,6 @@
 use bevy::app::{Startup, Update};
 use bevy::prelude::{
-    App, Assets, Camera2d, Changed, Click, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d,
+    App, Assets, Changed, Click, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d,
     MeshMaterial2d, Mix, Or, Out, Over, Pointer, Query, Rectangle, ResMut, Transform, Trigger,
     Window, With,
 };
@@ -62,8 +62,6 @@ fn setup(
 
     let grid_start_x = -window_size / 2.0;
     let grid_start_y = -window_size / 2.0;
-
-    commands.spawn(Camera2d);
 
     let shape = meshes.add(Rectangle::new(cell_size - 2.0, cell_size - 2.0));
 
