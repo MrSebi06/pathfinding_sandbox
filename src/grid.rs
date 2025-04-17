@@ -1,8 +1,8 @@
 use bevy::app::{Startup, Update};
 use bevy::prelude::{
-    App, Assets, Changed, Click, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d,
-    MeshMaterial2d, Mix, Or, Out, Over, Pointer, Query, Rectangle, ResMut, Transform, Trigger,
-    Window, With,
+    App, Assets, Changed, Click, Color, ColorMaterial, Commands, Component, Entity, Event,
+    EventWriter, Mesh, Mesh2d, MeshMaterial2d, Mix, Or, Out, Over, Pointer, Query, Rectangle, Res,
+    ResMut, Resource, Transform, Trigger, Window, With,
 };
 use bevy::window::PrimaryWindow;
 use std::fmt::Display;
@@ -14,7 +14,8 @@ use std::fmt::Display;
 /// the cells by clicking on them. The cells change their state and color based on user interaction.
 ///
 pub(super) fn plugin(app: &mut App) {
-    app.add_systems(Startup, setup)
+    app.init_resource::<CellEditMode>()
+        .add_systems(Startup, setup)
         .add_systems(Update, update_cell_colors);
 }
 
@@ -24,7 +25,7 @@ struct Cell {
     y: usize,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 enum CellState {
     Empty,
     Wall,
@@ -45,12 +46,23 @@ impl Display for CellState {
 #[derive(Component, Default)]
 struct CellHovered(bool);
 
+#[derive(Resource, Default)]
+struct CellEditMode {
+    pub mode: Option<CellState>,
+}
+
+#[derive(Event)]
+struct CellClicked(Entity);
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut cell_edit_mode: ResMut<CellEditMode>,
 ) {
+    cell_edit_mode.mode = Some(CellState::Start);
+
     let num_cells = 20;
     let cell_size = 40.0;
 
@@ -88,7 +100,14 @@ fn setup(
     }
 }
 
-fn on_mouse_over(over: Trigger<Pointer<Over>>, mut query: Query<&mut CellHovered>) {
+fn on_mouse_over(
+    over: Trigger<Pointer<Over>>,
+    mut query: Query<&mut CellHovered>,
+    cell_edit_mode: Res<CellEditMode>,
+) {
+    if !cell_edit_mode.mode.is_some() {
+        return;
+    }
     if let Ok(mut cell_hovered) = query.get_mut(over.entity()) {
         {
             cell_hovered.0 = true;
@@ -102,14 +121,16 @@ fn on_mouse_out(out: Trigger<Pointer<Out>>, mut query: Query<&mut CellHovered>) 
     }
 }
 
-fn on_click(click: Trigger<Pointer<Click>>, mut query: Query<&mut CellState>) {
-    if let Ok(mut cell_state) = query.get_mut(click.entity()) {
-        *cell_state = match *cell_state {
-            CellState::Empty => CellState::Wall,
-            CellState::Wall => CellState::Start,
-            CellState::Start => CellState::End,
-            CellState::End => CellState::Empty,
-        };
+fn on_click(
+    click: Trigger<Pointer<Click>>,
+    mut query: Query<(Entity, &Cell)>,
+    cell_edit_mode: Res<CellEditMode>,
+    mut cell_clicked: EventWriter<CellClicked>,
+) {
+    if let Some(_) = cell_edit_mode.mode.clone() {
+        if let (Ok(entity), Ok(_)) = query.get_mut(click.entity()) {
+            cell_clicked.send(CellClicked(entity));
+        }
     }
 }
 

@@ -18,10 +18,9 @@ fn handle_pan(
     mut evr_motion: EventReader<MouseMotion>,
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
 ) {
-    if let mut transform = camera_query.single_mut() {
-        for ev in evr_motion.read() {
-            transform.translation.x -= ev.delta.x;
-            transform.translation.y += ev.delta.y;
-        }
+    let mut transform = camera_query.single_mut();
+    for ev in evr_motion.read() {
+        transform.translation.x -= ev.delta.x;
+        transform.translation.y += ev.delta.y;
     }
 }
