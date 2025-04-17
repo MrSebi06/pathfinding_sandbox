@@ -1,8 +1,9 @@
 use bevy::app::{Startup, Update};
+use bevy::color::Mix;
 use bevy::prelude::{
     App, Assets, Changed, Click, Color, ColorMaterial, Commands, Component, Entity, Event,
-    EventWriter, Mesh, Mesh2d, MeshMaterial2d, Mix, Or, Out, Over, Pointer, Query, Rectangle, Res,
-    ResMut, Resource, Transform, Trigger, Window, With,
+    EventReader, EventWriter, Mesh, Mesh2d, MeshMaterial2d, Out, Over, Pointer, Query, Rectangle,
+    Res, ResMut, Resource, Transform, Trigger, Window, With,
 };
 use bevy::window::PrimaryWindow;
 use std::fmt::Display;
@@ -15,8 +16,10 @@ use std::fmt::Display;
 ///
 pub(super) fn plugin(app: &mut App) {
     app.init_resource::<CellEditMode>()
+        .add_event::<CellClicked>()
         .add_systems(Startup, setup)
-        .add_systems(Update, update_cell_colors);
+        .add_systems(Update, update_cell)
+        .add_systems(Update, cell_hovered);
 }
 
 #[derive(Component)]
@@ -42,6 +45,16 @@ impl Display for CellState {
         }
     }
 }
+impl CellState {
+    fn to_color(&self) -> Color {
+        match self {
+            CellState::Empty => Color::WHITE,
+            CellState::Wall => Color::srgb(0.5, 0.5, 0.5),
+            CellState::Start => Color::srgb(0.0, 1.0, 0.0),
+            CellState::End => Color::srgb(1.0, 0.0, 0.0),
+        }
+    }
+}
 
 #[derive(Component, Default)]
 struct CellHovered(bool);
@@ -52,7 +65,10 @@ struct CellEditMode {
 }
 
 #[derive(Event)]
-struct CellClicked(Entity);
+struct CellClicked {
+    pub entity: Entity,
+    pub new_state: CellState,
+}
 
 fn setup(
     mut commands: Commands,
@@ -123,38 +139,50 @@ fn on_mouse_out(out: Trigger<Pointer<Out>>, mut query: Query<&mut CellHovered>) 
 
 fn on_click(
     click: Trigger<Pointer<Click>>,
-    mut query: Query<(Entity, &Cell)>,
     cell_edit_mode: Res<CellEditMode>,
+    mut query: Query<Entity, With<Cell>>,
     mut cell_clicked: EventWriter<CellClicked>,
 ) {
-    if let Some(_) = cell_edit_mode.mode.clone() {
-        if let (Ok(entity), Ok(_)) = query.get_mut(click.entity()) {
-            cell_clicked.send(CellClicked(entity));
+    if let Some(edit_mode) = cell_edit_mode.mode.clone() {
+        if let Ok(entity) = query.get_mut(click.entity()) {
+            cell_clicked.send(CellClicked {
+                entity,
+                new_state: edit_mode,
+            });
         }
     }
 }
 
-fn update_cell_colors(
+fn update_cell(
     mut materials: ResMut<Assets<ColorMaterial>>,
-    query: Query<
-        (&CellState, &MeshMaterial2d<ColorMaterial>, &CellHovered),
-        Or<(Changed<CellState>, Changed<CellHovered>)>,
-    >,
+    mut query: Query<(Entity, &mut CellState, &MeshMaterial2d<ColorMaterial>)>,
+    mut cell_clicked: EventReader<CellClicked>,
 ) {
-    for (state, material_handle, cell_hovered) in query.iter() {
-        if let Some(material) = materials.get_mut(material_handle.0.id()) {
-            let mut new_color = match state {
-                CellState::Empty => Color::WHITE,
-                CellState::Wall => Color::srgb(0.5, 0.5, 0.5),
-                CellState::Start => Color::srgb(0.0, 1.0, 0.0),
-                CellState::End => Color::srgb(1.0, 0.0, 0.0),
-            };
-
-            if cell_hovered.0 {
-                new_color = new_color.mix(&Color::BLACK, 0.5);
+    for ev in cell_clicked.read() {
+        if let Ok((_, mut state, material_handle)) = query.get_mut(ev.entity) {
+            if let Some(material) = materials.get_mut(material_handle.0.id()) {
+                *state = ev.new_state.clone();
+                let new_color = state.to_color();
+                material.color = new_color;
             }
+        }
+    }
+}
 
-            material.color = new_color;
+fn cell_hovered(
+    mut query: Query<
+        (&CellHovered, &MeshMaterial2d<ColorMaterial>, &CellState),
+        Changed<CellHovered>,
+    >,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    for (hovered, material_handle, state) in query.iter_mut() {
+        if let Some(material) = materials.get_mut(material_handle.0.id()) {
+            if hovered.0 {
+                material.color = state.to_color().mix(&Color::BLACK, 0.5)
+            } else {
+                material.color = state.to_color()
+            }
         }
     }
 }
