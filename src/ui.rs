@@ -1,4 +1,5 @@
-use crate::grid::{CellEditMode, CellState};
+use crate::grid::components::CellState;
+use crate::grid::resources::CellEditMode;
 use bevy::prelude::{App, ResMut, Resource, Startup, Update};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
