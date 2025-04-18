@@ -29,7 +29,7 @@ struct Cell {
 }
 
 #[derive(Component, Clone)]
-enum CellState {
+pub enum CellState {
     Empty,
     Wall,
     Start,
@@ -60,7 +60,7 @@ impl CellState {
 struct CellHovered(bool);
 
 #[derive(Resource, Default)]
-struct CellEditMode {
+pub struct CellEditMode {
     pub mode: Option<CellState>,
 }
 
@@ -75,10 +75,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
-    mut cell_edit_mode: ResMut<CellEditMode>,
 ) {
-    cell_edit_mode.mode = Some(CellState::Start);
-
     let num_cells = 20;
     let cell_size = 40.0;
 
@@ -139,7 +136,7 @@ fn on_mouse_out(out: Trigger<Pointer<Out>>, mut query: Query<&mut CellHovered>) 
 
 fn on_click(
     click: Trigger<Pointer<Click>>,
-    cell_edit_mode: Res<CellEditMode>,
+    mut cell_edit_mode: ResMut<CellEditMode>,
     mut query: Query<Entity, With<Cell>>,
     mut cell_clicked: EventWriter<CellClicked>,
 ) {
@@ -149,6 +146,7 @@ fn on_click(
                 entity,
                 new_state: edit_mode,
             });
+            cell_edit_mode.mode = None;
         }
     }
 }

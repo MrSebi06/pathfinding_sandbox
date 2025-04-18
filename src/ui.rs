@@ -1,4 +1,5 @@
-use bevy::prelude::{App, Resource, Startup, Update};
+use crate::grid::{CellEditMode, CellState};
+use bevy::prelude::{App, ResMut, Resource, Startup, Update};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
 pub(super) fn plugin(app: &mut App) {
@@ -26,13 +27,20 @@ fn setup_icons(mut contexts: EguiContexts) {
     ctx.set_fonts(fonts);
 }
 
-fn grid_ui(mut contexts: EguiContexts, mut ui_state: bevy::prelude::ResMut<GridUiState>) {
+fn grid_ui(
+    mut contexts: EguiContexts,
+    mut ui_state: ResMut<GridUiState>,
+    mut cell_edit_mode: ResMut<CellEditMode>,
+) {
     let ctx = contexts.ctx_mut();
 
     egui::SidePanel::left("grid_control")
         .resizable(false)
         .show_animated(ctx, ui_state.is_open, |ui| {
             ui.label("Grid Controls");
+            if ui.button("Set start").clicked() {
+                cell_edit_mode.mode = Some(CellState::Start);
+            }
         });
 
     let frame = egui::Frame {
@@ -56,7 +64,6 @@ fn grid_ui(mut contexts: EguiContexts, mut ui_state: bevy::prelude::ResMut<GridU
                 .clicked()
             {
                 ui_state.is_open = !ui_state.is_open;
-                println!("Top panel button clicked!");
             }
         });
 }
