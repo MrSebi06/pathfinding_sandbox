@@ -1,5 +1,6 @@
 mod camera;
 mod grid;
+mod pathfinding;
 mod ui;
 
 use bevy::prelude::*;

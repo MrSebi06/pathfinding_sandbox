@@ -42,6 +42,9 @@ fn grid_ui(
             if ui.button("Set start").clicked() {
                 cell_edit_mode.mode = Some(CellState::Start);
             }
+            if ui.button("Set end").clicked() {
+                cell_edit_mode.mode = Some(CellState::End);
+            }
         });
 
     let frame = egui::Frame {
